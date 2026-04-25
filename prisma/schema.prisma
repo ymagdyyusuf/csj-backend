@@ -1,15 +1,441 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// ============================================================
+// CSJ SCOUT GROUP APP - Complete Database Schema
+// ============================================================
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Role {
+  DEVELOPER
+  ADMIN
+  MEMBER
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+  NEUTRAL
+}
+
+enum AttendanceType {
+  SCHEDULE
+  EVENT
+  CAMP
+  TRIP
+}
+
+enum NoteCategory {
+  BEHAVIORAL
+  HEALTH
+  ACHIEVEMENT
+  GENERAL
+  ALERT
+}
+
+enum ContactRelation {
+  FATHER
+  MOTHER
+  GUARDIAN
+  OTHER
+}
+
+enum PostType {
+  TEXT
+  IMAGE
+  VIDEO
+  DOCUMENT
+  LINK
+  POLL
+}
+
+enum EventType {
+  EVENT
+  TRIP
+  CAMP
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+}
+
+enum ActionType {
+  MEMBER_CREATED
+  MEMBER_UPDATED
+  MEMBER_DELETED
+  MEMBER_IMPORTED
+  ATTENDANCE_MARKED
+  ATTENDANCE_EDITED
+  BOQS_SENT
+  POST_CREATED
+  POST_DELETED
+  COMMENT_DELETED
+  LECTURE_CREATED
+  LECTURE_DELETED
+  EVENT_CREATED
+  EVENT_DELETED
+  EVENT_UPDATED
+  PARTY_ITEM_CREATED
+  PARTY_ITEM_DELETED
+  FLAG_TOGGLED
+  LABEL_RENAMED
+  COLOR_CHANGED
+  NOTE_ADDED
+  NOTE_DELETED
+  ROLE_CHANGED
+  PASSWORD_RESET_APPROVED
+  PASSWORD_RESET_REJECTED
+  REPORT_EXPORTED
+  LOCATION_ACCESSED
+  PLEDGE_PUSHED
+  PLEDGE_CREATED
+  BADGE_ASSIGNED
+  REWARD_RECORDED
+}
+
+// ============================================================
+// MODELS
+// ============================================================
+
+model User {
+  id           String   @id @default(cuid())
+  uniqueId     String   @unique
+  username     String   @unique
+  phone        String   @unique
+  passwordHash String
+  role         Role     @default(MEMBER)
+  isActive     Boolean  @default(true)
+  qrCode       String   @unique
+  avatarUrl    String?
+  language     String   @default("ar")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  attendance       Attendance[]
+  locationLogs     LocationLog[]
+  sentMessages     Message[]          @relation("SentMessages")
+  receivedMessages Message[]          @relation("ReceivedMessages")
+  wallPosts        WallPost[]
+  comments         Comment[]
+  reactions        Reaction[]
+  badges           MemberBadge[]
+  contacts         EmergencyContact[]
+  notesAbout       LeaderNote[]       @relation("NoteSubject")
+  notesWritten     LeaderNote[]       @relation("NoteAuthor")
+  pledges          MemberPledge[]
+  notifications    Notification[]
+  activityLogs     ActivityLog[]
+  rewards          RewardPunishment[]
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model Schedule {
+  id        String   @id @default(cuid())
+  title     String
+  groupName String?
+  dayOfWeek Int[]
+  startTime String
+  endTime   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  attendance Attendance[]
+}
+
+model Attendance {
+  id         String           @id @default(cuid())
+  memberId   String
+  scheduleId String?
+  eventId    String?
+  type       AttendanceType
+  status     AttendanceStatus
+  date       DateTime
+  markedById String
+  isOffline  Boolean          @default(false)
+  syncStatus SyncStatus       @default(SYNCED)
+  syncedAt   DateTime?
+  notes      String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  member   User      @relation(fields: [memberId], references: [id])
+  schedule Schedule? @relation(fields: [scheduleId], references: [id])
+  event    Event?    @relation(fields: [eventId], references: [id])
+
+  @@index([memberId, date])
+  @@index([scheduleId, date])
+  @@index([type])
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  title       String
+  type        EventType
+  description String?
+  location    String?
+  startDate   DateTime
+  endDate     DateTime
+  mediaUrls   String[]
+  docUrls     String[]
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  attendance Attendance[]
+}
+
+model Boqs {
+  id          String   @id @default(cuid())
+  audioUrl    String
+  text        String   @db.VarChar(300)
+  duration    Int
+  sentById    String
+  sentAt      DateTime @default(now())
+  deviceCount Int      @default(0)
+}
+
+model LocationLog {
+  id         String   @id @default(cuid())
+  memberId   String
+  latitude   Float
+  longitude  Float
+  accuracy   Float?
+  recordedAt DateTime @default(now())
+
+  member User @relation(fields: [memberId], references: [id])
+
+  @@index([memberId, recordedAt])
+}
+
+model WallPost {
+  id          String   @id @default(cuid())
+  authorId    String
+  type        PostType
+  content     String?
+  mediaUrls   String[]
+  linkUrl     String?
+  pollOptions Json?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author    User       @relation(fields: [authorId], references: [id])
+  comments  Comment[]
+  reactions Reaction[]
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  post   WallPost @relation(fields: [postId], references: [id])
+  author User     @relation(fields: [authorId], references: [id])
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  post WallPost @relation(fields: [postId], references: [id])
+  user User     @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId, emoji])
+}
+
+model Lecture {
+  id             String   @id @default(cuid())
+  title          String
+  description    String?
+  fileUrl        String
+  fileType       String
+  isDownloadable Boolean  @default(false)
+  thumbnailUrl   String?
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Pledge {
+  id        String   @id @default(cuid())
+  titleAr   String
+  titleEn   String
+  titleFr   String
+  bodyAr    String
+  bodyEn    String
+  bodyFr    String
+  audioUrl  String?
+  imageUrl  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberPledges MemberPledge[]
+}
+
+model MemberPledge {
+  id             String   @id @default(cuid())
+  memberId       String
+  pledgeId       String
+  acknowledgedAt DateTime @default(now())
+  wasForced      Boolean  @default(false)
+
+  member User   @relation(fields: [memberId], references: [id])
+  pledge Pledge @relation(fields: [pledgeId], references: [id])
+
+  @@unique([memberId, pledgeId])
+}
+
+model EmergencyContact {
+  id           String          @id @default(cuid())
+  memberId     String
+  contactName  String
+  relationship ContactRelation
+  phones       String[]
+  defaultPhone String
+  notes        String?
+  createdAt    DateTime        @default(now())
+
+  member User @relation(fields: [memberId], references: [id])
+}
+
+model LeaderNote {
+  id        String       @id @default(cuid())
+  memberId  String
+  authorId  String
+  category  NoteCategory
+  body      String       @db.VarChar(1000)
+  isPrivate Boolean      @default(false)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  member User @relation("NoteSubject", fields: [memberId], references: [id])
+  author User @relation("NoteAuthor", fields: [authorId], references: [id])
+}
+
+model Badge {
+  id          String  @id @default(cuid())
+  name        String
+  imageUrl    String?
+  description String?
+
+  members MemberBadge[]
+}
+
+model MemberBadge {
+  id        String   @id @default(cuid())
+  memberId  String
+  badgeId   String
+  awardedAt DateTime @default(now())
+  awardedBy String
+
+  member User  @relation(fields: [memberId], references: [id])
+  badge  Badge @relation(fields: [badgeId], references: [id])
+}
+
+model RewardPunishment {
+  id        String   @id @default(cuid())
+  memberId  String
+  type      String
+  title     String
+  body      String?
+  createdAt DateTime @default(now())
+
+  member User @relation(fields: [memberId], references: [id])
+}
+
+model Message {
+  id         String    @id @default(cuid())
+  senderId   String
+  receiverId String
+  body       String
+  expiresAt  DateTime?
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  sender   User @relation("SentMessages", fields: [senderId], references: [id])
+  receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  type      String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  isEnabled   Boolean  @default(true)
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model UIConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  valueAr   String?
+  valueEn   String?
+  valueFr   String?
+  type      String
+  updatedAt DateTime @updatedAt
+}
+
+model ActivityLog {
+  id            String     @id @default(cuid())
+  actorId       String
+  actorRole     Role
+  action        ActionType
+  targetType    String?
+  targetId      String?
+  previousValue Json?
+  newValue      Json?
+  ipAddress     String?
+  deviceInfo    String?
+  createdAt     DateTime   @default(now())
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model ScoutPartyItem {
+  id             String   @id @default(cuid())
+  title          String
+  type           String
+  url            String
+  isDownloadable Boolean  @default(false)
+  createdById    String
+  createdAt      DateTime @default(now())
 }
