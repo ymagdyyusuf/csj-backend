@@ -32,6 +32,7 @@
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "nanoid": "^3.3.12",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
@@ -65,18 +66,30 @@
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
   },
-"jest": {
-  "moduleFileExtensions": ["js", "json", "ts"],
-  "rootDir": "src",
-  "testRegex": ".*\\.(unit\\.test|integration\\.test|spec)\\.ts$",
-  "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
-  },
-  "collectCoverageFrom": ["**/*.(t|j)s", "!**/*.dto.ts", "!**/*.module.ts", "!**/main.ts"],
-  "coverageDirectory": "../coverage",
-  "testEnvironment": "node",
-  "moduleNameMapper": {
-    "^@prisma/client$": "<rootDir>/../node_modules/@prisma/client"
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": "src",
+    "testRegex": ".*\\.(unit\\.test|integration\\.test|spec)\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": [
+      "**/*.(t|j)s",
+      "!**/*.dto.ts",
+      "!**/*.module.ts",
+      "!**/main.ts"
+    ],
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^@prisma/client$": "<rootDir>/../node_modules/@prisma/client"
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!@paralleldrive/cuid2)"
+    ]
   }
-}
 }

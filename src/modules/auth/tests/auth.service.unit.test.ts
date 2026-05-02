@@ -1,20 +1,31 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
-import { AuthRepository } from '../auth.repository';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { AuthService } from '../auth.service';
+import { AuthRepository } from '../auth.repository';
 import { EventBusService } from '../../../shared/events/event-bus.service';
 import { BCRYPT_COST_FACTOR } from '../auth.types';
+import { AuthEventNames } from '../auth.events';
 
-/**
- * Unit tests for AuthService.
- *
- * BATCH 1: Password helpers (hashPassword, verifyPassword).
- * BATCH 2: register() and validateUser() — coming next.
- * BATCH 3: login() and refresh() — coming after that.
- */
 describe('AuthService', () => {
   let service: AuthService;
+  let repository: jest.Mocked<AuthRepository>;
+  let eventBus: jest.Mocked<EventBusService>;
+
+  const mockUser = {
+    id: 'cuid_test_001',
+    uniqueId: 'CSJ-001',
+    username: 'ahmed_scout',
+    phone: '+201234567890',
+    passwordHash: '$2b$12$fakehashfakehashfakehashfakehas',
+    role: Role.MEMBER,
+    isActive: true,
+    qrCode: 'qr_test_001',
+    avatarUrl: null,
+    language: 'ar',
+    createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-01-01'),
+  };
 
   beforeEach(async () => {
     const repositoryMock = {
@@ -26,93 +37,138 @@ describe('AuthService', () => {
       updatePasswordHash: jest.fn(),
       setActive: jest.fn(),
     };
-
-    const jwtServiceMock = {
-      sign: jest.fn(),
-      signAsync: jest.fn(),
-      verifyAsync: jest.fn(),
-    };
-
-    const eventBusMock = {
-      emit: jest.fn(),
-      on: jest.fn(),
-    };
-
-    const configServiceMock = {
-      get: jest.fn((key: string): string | undefined => {
-        const config: Record<string, string> = {
-          JWT_SECRET: 'test-jwt-secret-do-not-use-in-production',
-          JWT_REFRESH_SECRET: 'test-refresh-secret-do-not-use-in-production',
-        };
-        return config[key];
-      }),
-    };
-
+    const eventBusMock = { emit: jest.fn(), on: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: AuthRepository, useValue: repositoryMock },
-        { provide: JwtService, useValue: jwtServiceMock },
         { provide: EventBusService, useValue: eventBusMock },
-        { provide: ConfigService, useValue: configServiceMock },
       ],
     }).compile();
-
     service = module.get<AuthService>(AuthService);
+    repository = module.get(AuthRepository) as unknown as jest.Mocked<AuthRepository>;
+    eventBus = module.get(EventBusService) as unknown as jest.Mocked<EventBusService>;
   });
 
-  // ============================================================
-  // BATCH 1: Password Helpers
-  // ============================================================
-
   describe('hashPassword', () => {
-    it('produces a bcrypt hash from a plaintext password', async () => {
-      const plain = 'mySecurePass123';
-
-      const hash = await service.hashPassword(plain);
-
+    it('produces a bcrypt hash', async () => {
+      const hash = await service.hashPassword('mySecurePass123');
       expect(hash).toMatch(/^\$2[aby]\$/);
       expect(hash).toContain(`$${BCRYPT_COST_FACTOR}$`);
       expect(hash).toHaveLength(60);
     });
-
-    it('produces different hashes for the same password (salt randomization)', async () => {
-      const plain = 'samePassword';
-
-      const hash1 = await service.hashPassword(plain);
-      const hash2 = await service.hashPassword(plain);
-
-      expect(hash1).not.toEqual(hash2);
+    it('produces different hashes for the same password', async () => {
+      const h1 = await service.hashPassword('samePassword');
+      const h2 = await service.hashPassword('samePassword');
+      expect(h1).not.toEqual(h2);
     });
   });
 
   describe('verifyPassword', () => {
-    it('returns true for a matching password', async () => {
-      const plain = 'correctPassword';
-      const hash = await service.hashPassword(plain);
+    it('returns true for matching password', async () => {
+      const hash = await service.hashPassword('correctPassword');
+      expect(await service.verifyPassword('correctPassword', hash)).toBe(true);
+    });
+    it('returns false for non-matching password', async () => {
+      const hash = await service.hashPassword('correctPassword');
+      expect(await service.verifyPassword('wrongPassword', hash)).toBe(false);
+    });
+    it('returns false for malformed hash', async () => {
+      expect(await service.verifyPassword('any', 'not-a-bcrypt-hash')).toBe(false);
+    });
+  });
 
-      const result = await service.verifyPassword(plain, hash);
+  describe('register', () => {
+    const validDto = { username: 'new_scout', phone: '+201111111111', password: 'validPass123' };
 
-      expect(result).toBe(true);
+    it('creates a new user when username and phone are unique', async () => {
+      repository.findByUsername.mockResolvedValue(null);
+      repository.findByPhone.mockResolvedValue(null);
+      repository.create.mockResolvedValue({ ...mockUser, username: validDto.username, phone: validDto.phone });
+      const result = await service.register(validDto);
+      expect(result.username).toBe(validDto.username);
+      expect(result.role).toBe(Role.MEMBER);
+      expect(repository.create).toHaveBeenCalledTimes(1);
     });
 
-    it('returns false for a non-matching password', async () => {
-      const correctPlain = 'correctPassword';
-      const wrongPlain = 'wrongPassword';
-      const hash = await service.hashPassword(correctPlain);
-
-      const result = await service.verifyPassword(wrongPlain, hash);
-
-      expect(result).toBe(false);
+    it('always creates with role=MEMBER (security)', async () => {
+      repository.findByUsername.mockResolvedValue(null);
+      repository.findByPhone.mockResolvedValue(null);
+      repository.create.mockResolvedValue(mockUser);
+      const dtoWithRole = { ...validDto, role: 'DEVELOPER' as never };
+      await service.register(dtoWithRole);
+      expect(repository.create.mock.calls[0][0].role).toBe(Role.MEMBER);
     });
 
-    it('returns false for a malformed hash', async () => {
-      const plain = 'anyPassword';
-      const malformedHash = 'this-is-not-a-bcrypt-hash';
+    it('hashes the password before storage', async () => {
+      repository.findByUsername.mockResolvedValue(null);
+      repository.findByPhone.mockResolvedValue(null);
+      repository.create.mockResolvedValue(mockUser);
+      await service.register(validDto);
+      const createCall = repository.create.mock.calls[0][0];
+      expect(createCall.passwordHash).not.toBe(validDto.password);
+      expect(createCall.passwordHash).toMatch(/^\$2[aby]\$/);
+    });
 
-      const result = await service.verifyPassword(plain, malformedHash);
+    it('rejects when username is already taken', async () => {
+      repository.findByUsername.mockResolvedValue(mockUser);
+      await expect(service.register(validDto)).rejects.toThrow(ConflictException);
+      expect(repository.create).not.toHaveBeenCalled();
+    });
 
-      expect(result).toBe(false);
+    it('rejects when phone is already taken', async () => {
+      repository.findByUsername.mockResolvedValue(null);
+      repository.findByPhone.mockResolvedValue(mockUser);
+      await expect(service.register(validDto)).rejects.toThrow(ConflictException);
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it('emits UserRegisteredEvent on success', async () => {
+      repository.findByUsername.mockResolvedValue(null);
+      repository.findByPhone.mockResolvedValue(null);
+      repository.create.mockResolvedValue(mockUser);
+      await service.register(validDto);
+      expect(eventBus.emit).toHaveBeenCalledWith(
+        AuthEventNames.USER_REGISTERED,
+        expect.objectContaining({ userId: mockUser.id, username: mockUser.username, role: mockUser.role }),
+      );
+    });
+
+    it('returns user view WITHOUT passwordHash', async () => {
+      repository.findByUsername.mockResolvedValue(null);
+      repository.findByPhone.mockResolvedValue(null);
+      repository.create.mockResolvedValue(mockUser);
+      const result = await service.register(validDto);
+      expect(result).not.toHaveProperty('passwordHash');
+      expect(result).not.toHaveProperty('qrCode');
+    });
+  });
+
+  describe('validateUser', () => {
+    const validPayload = { sub: 'cuid_test_001', role: Role.MEMBER, username: 'ahmed_scout' };
+
+    it('returns the user view when valid and active', async () => {
+      repository.findById.mockResolvedValue(mockUser);
+      const result = await service.validateUser(validPayload);
+      expect(result.id).toBe(mockUser.id);
+      expect(result.username).toBe(mockUser.username);
+    });
+
+    it('throws UnauthorizedException when user does not exist', async () => {
+      repository.findById.mockResolvedValue(null);
+      await expect(service.validateUser(validPayload)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('throws UnauthorizedException when user is inactive', async () => {
+      repository.findById.mockResolvedValue({ ...mockUser, isActive: false });
+      await expect(service.validateUser(validPayload)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('returns user view WITHOUT passwordHash or qrCode', async () => {
+      repository.findById.mockResolvedValue(mockUser);
+      const result = await service.validateUser(validPayload);
+      expect(result).not.toHaveProperty('passwordHash');
+      expect(result).not.toHaveProperty('qrCode');
     });
   });
 });
