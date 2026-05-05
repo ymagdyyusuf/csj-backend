@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './shared/prisma/prisma.module';
 import { EventsModule } from './shared/events/events.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 /**
  * Root application module.
@@ -31,12 +32,12 @@ import { EventsModule } from './shared/events/events.module';
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: '15m', // access tokens expire in 15 minutes
+          expiresIn: '15m',
         },
       }),
     }),
-    // Feature modules will be added here as we build them:
-    // AuthModule, MembersModule, AttendanceModule, ...
+    // Auth feature module
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
