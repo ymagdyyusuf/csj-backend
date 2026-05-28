@@ -6,7 +6,7 @@ import { AppService } from './app.service';
 import { PrismaModule } from './shared/prisma/prisma.module';
 import { EventsModule } from './shared/events/events.module';
 import { AuthModule } from './modules/auth/auth.module';
-
+import { MembersModule } from './modules/members/members.module';
 /**
  * Root application module.
  *
@@ -38,6 +38,7 @@ import { AuthModule } from './modules/auth/auth.module';
     }),
     // Auth feature module
     AuthModule,
+    MembersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
