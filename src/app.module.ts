@@ -8,6 +8,7 @@ import { EventsModule } from './shared/events/events.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { MembersModule } from './modules/members/members.module';
 import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
 /**
  * Root application module.
  *
@@ -42,6 +43,8 @@ import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module
     MembersModule,
     MembersModule,
     FeatureFlagsModule,
+    FeatureFlagsModule,
+    AttendanceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
