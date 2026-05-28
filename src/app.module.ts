@@ -1,3 +1,4 @@
+import { CloudinaryModule } from './shared/cloudinary/cloudinary.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
@@ -24,6 +25,7 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
     }),
     // Database access
     PrismaModule,
+    CloudinaryModule,
     // Domain event bus
     EventsModule,
     // JWT signing/verification — registered globally so any module can inject JwtService
