@@ -10,6 +10,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { MembersModule } from './modules/members/members.module';
 import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { BoqsModule } from './modules/boqs/boqs.module';
 /**
  * Root application module.
  *
@@ -47,6 +48,8 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
     FeatureFlagsModule,
     FeatureFlagsModule,
     AttendanceModule,
+    AttendanceModule,
+    BoqsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
