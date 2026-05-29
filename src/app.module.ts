@@ -11,6 +11,7 @@ import { MembersModule } from './modules/members/members.module';
 import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { BoqsModule } from './modules/boqs/boqs.module';
+import { LocationModule } from './modules/location/location.module';
 /**
  * Root application module.
  *
@@ -50,6 +51,7 @@ import { BoqsModule } from './modules/boqs/boqs.module';
     AttendanceModule,
     AttendanceModule,
     BoqsModule,
+    LocationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
