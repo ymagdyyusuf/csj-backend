@@ -64,7 +64,71 @@ export class CloudinaryService {
       uploadStream.end(buffer);
     });
   }
+  /**
+   * Upload an image buffer to Cloudinary.
+   * No duration is returned for images.
+   */
+  async uploadImage(buffer: Buffer, filename: string): Promise<UploadResult> {
+    return new Promise<UploadResult>((resolve, reject) => {
+      const uploadStream = this.cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'image',
+          folder: 'wall',
+          public_id: `${Date.now()}_${filename.replace(/\.[^.]+$/, '')}`,
+        },
+        (error, result) => {
+          if (error || !result) {
+            this.logger.error(
+              `Cloudinary image upload failed: ${error?.message}`,
+            );
+            return reject(
+              new InternalServerErrorException('Image upload failed'),
+            );
+          }
+          resolve({
+            url: result.secure_url,
+            duration: 0, // images have no duration
+            publicId: result.public_id,
+          });
+        },
+      );
 
+      uploadStream.end(buffer);
+    });
+  }
+
+  /**
+   * Upload a video buffer to Cloudinary.
+   * Cloudinary returns duration in seconds; we round it.
+   */
+  async uploadVideo(buffer: Buffer, filename: string): Promise<UploadResult> {
+    return new Promise<UploadResult>((resolve, reject) => {
+      const uploadStream = this.cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'video',
+          folder: 'wall',
+          public_id: `${Date.now()}_${filename.replace(/\.[^.]+$/, '')}`,
+        },
+        (error, result) => {
+          if (error || !result) {
+            this.logger.error(
+              `Cloudinary video upload failed: ${error?.message}`,
+            );
+            return reject(
+              new InternalServerErrorException('Video upload failed'),
+            );
+          }
+          resolve({
+            url: result.secure_url,
+            duration: Math.round(result.duration ?? 0),
+            publicId: result.public_id,
+          });
+        },
+      );
+
+      uploadStream.end(buffer);
+    });
+  }
   /**
    * Delete a file from Cloudinary by its public ID.
    * Best-effort: logs but does not throw if deletion fails, so a failed

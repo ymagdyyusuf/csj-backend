@@ -84,6 +84,75 @@ describe('CloudinaryService', () => {
         resource_type: 'video',
       });
     });
+    describe('uploadImage', () => {
+      it('resolves with url and publicId on success', async () => {
+        uploadStreamMock.mockImplementation((_options, callback) => {
+          callback(null, {
+            secure_url:
+              'https://res.cloudinary.com/csj/image/upload/wall/photo_123.jpg',
+            public_id: 'wall/photo_123',
+          });
+          return { end: jest.fn() };
+        });
+
+        const result = await service.uploadImage(
+          Buffer.from('fake image'),
+          'photo.jpg',
+        );
+
+        expect(result.url).toBe(
+          'https://res.cloudinary.com/csj/image/upload/wall/photo_123.jpg',
+        );
+        expect(result.publicId).toBe('wall/photo_123');
+      });
+
+      it('throws InternalServerErrorException when Cloudinary errors', async () => {
+        uploadStreamMock.mockImplementation((_options, callback) => {
+          callback(new Error('Cloudinary down'), undefined);
+          return { end: jest.fn() };
+        });
+
+        await expect(
+          service.uploadImage(Buffer.from('fake image'), 'photo.jpg'),
+        ).rejects.toThrow(InternalServerErrorException);
+      });
+    });
+
+    describe('uploadVideo', () => {
+      it('resolves with url, duration and publicId on success', async () => {
+        uploadStreamMock.mockImplementation((_options, callback) => {
+          callback(null, {
+            secure_url:
+              'https://res.cloudinary.com/csj/video/upload/wall/clip_123.mp4',
+            duration: 28.4,
+            public_id: 'wall/clip_123',
+          });
+          return { end: jest.fn() };
+        });
+
+        const result = await service.uploadVideo(
+          Buffer.from('fake video'),
+          'clip.mp4',
+        );
+
+        expect(result.url).toBe(
+          'https://res.cloudinary.com/csj/video/upload/wall/clip_123.mp4',
+        );
+        expect(result.duration).toBe(28);
+        expect(result.publicId).toBe('wall/clip_123');
+      });
+
+      it('throws InternalServerErrorException when Cloudinary errors', async () => {
+        uploadStreamMock.mockImplementation((_options, callback) => {
+          callback(new Error('Cloudinary down'), undefined);
+          return { end: jest.fn() };
+        });
+
+        await expect(
+          service.uploadVideo(Buffer.from('fake video'), 'clip.mp4'),
+        ).rejects.toThrow(InternalServerErrorException);
+      });
+    });
 
     it('does not throw if destroy fails (best-effort cleanup)', async () => {
       destroyMock.mockRejectedValue(new Error('not found'));
