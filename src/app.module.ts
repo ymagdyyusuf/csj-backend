@@ -12,6 +12,7 @@ import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module
 import { AttendanceModule } from './modules/attendance/attendance.module';
 import { BoqsModule } from './modules/boqs/boqs.module';
 import { LocationModule } from './modules/location/location.module';
+import { WallModule } from './modules/wall/wall.module';
 /**
  * Root application module.
  *
@@ -45,13 +46,11 @@ import { LocationModule } from './modules/location/location.module';
     // Auth feature module
     AuthModule,
     MembersModule,
-    MembersModule,
     FeatureFlagsModule,
-    FeatureFlagsModule,
-    AttendanceModule,
     AttendanceModule,
     BoqsModule,
     LocationModule,
+    WallModule,
   ],
   controllers: [AppController],
   providers: [AppService],
